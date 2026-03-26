@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: go test
+        run: go test -race -coverprofile=coverage.out ./...
+
+      - name: Coverage gate (internal/audit ≥ 97%)
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out \
+            | grep "github.com/jgiornazi/meshaudit/internal/audit" \
+            | awk '{print $3}' \
+            | sed 's/%//' \
+            | awk '{sum+=$1; n++} END {if (n>0) print sum/n; else print 0}')
+          echo "internal/audit coverage: ${COVERAGE}%"
+          awk -v c="$COVERAGE" 'BEGIN { if (c+0 < 97) { print "FAIL: coverage " c "% is below 97% threshold"; exit 1 } }'
+
+  vet:
+    name: Vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64.8
+          args: --timeout=5m
