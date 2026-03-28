@@ -20,15 +20,19 @@ jobs:
       - name: go test
         run: go test -race -coverprofile=coverage.out ./...
 
-      - name: Coverage gate (internal/audit ≥ 97%)
+      - name: Coverage gate (≥ 75% total statement coverage)
         run: |
           COVERAGE=$(go tool cover -func=coverage.out \
-            | grep "github.com/jgiornazi/meshaudit/internal/audit" \
+            | grep '^total:' \
             | awk '{print $3}' \
-            | sed 's/%//' \
-            | awk '{sum+=$1; n++} END {if (n>0) print sum/n; else print 0}')
-          echo "internal/audit coverage: ${COVERAGE}%"
-          awk -v c="$COVERAGE" 'BEGIN { if (c+0 < 97) { print "FAIL: coverage " c "% is below 97% threshold"; exit 1 } }'
+            | sed 's/%//')
+          echo "Total statement coverage: ${COVERAGE}%"
+          awk -v c="$COVERAGE" 'BEGIN {
+            if (c+0 < 75) {
+              print "FAIL: coverage " c "% is below 75% threshold"
+              exit 1
+            }
+          }'
 
   vet:
     name: Vet

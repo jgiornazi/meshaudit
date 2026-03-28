@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	istioapi "istio.io/api/security/v1beta1"
@@ -61,23 +62,11 @@ func hasSeverity(findings []AuthzFinding, sev AuthzSeverity) bool {
 
 func hasDetail(findings []AuthzFinding, substr string) bool {
 	for _, f := range findings {
-		if contains(f.Detail, substr) {
+		if strings.Contains(f.Detail, substr) {
 			return true
 		}
 	}
 	return false
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		func() bool {
-			for i := 0; i <= len(s)-len(substr); i++ {
-				if s[i:i+len(substr)] == substr {
-					return true
-				}
-			}
-			return false
-		}())
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
@@ -161,7 +150,7 @@ func TestAuthz_WildcardMethod_WithNarrowPrincipal_NoWildcardWarn(t *testing.T) {
 	)
 	findings := evaluate(ap)
 	for _, f := range findings {
-		if f.Severity == SeverityWarn && contains(f.Detail, "wildcard methods") {
+		if f.Severity == SeverityWarn && strings.Contains(f.Detail, "wildcard methods") {
 			t.Error("should not flag wildcard method when principal is narrow")
 		}
 	}
@@ -309,7 +298,7 @@ func TestAuthz_EmptyPrincipals_NonBroad(t *testing.T) {
 	findings := evaluate(ap)
 	// Wildcard method but empty (non-wildcard) principals — should NOT fire the wildcard method+path rule.
 	for _, f := range findings {
-		if f.Severity == SeverityWarn && contains(f.Detail, "wildcard") {
+		if f.Severity == SeverityWarn && strings.Contains(f.Detail, "wildcard") {
 			t.Error("should not flag wildcard method when principals list is empty (not a wildcard)")
 		}
 	}

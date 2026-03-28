@@ -39,7 +39,7 @@ func makePА(namespace, name string, mode istioapi.PeerAuthentication_MutualTLS_
 }
 
 func makeService(namespace, name string, labels map[string]string) k8s.Service {
-	return k8s.Service{Name: name, Namespace: namespace, Labels: labels}
+	return k8s.Service{Name: name, Namespace: namespace, Labels: labels, PodSelector: labels}
 }
 
 // ── precedence tests ──────────────────────────────────────────────────────────

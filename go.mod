@@ -3,15 +3,18 @@ module github.com/jgiornazi/meshaudit
 go 1.25.6
 
 require (
+	github.com/fatih/color v1.19.0
 	github.com/spf13/cobra v1.10.2
+	istio.io/api v1.29.0-rc.1.0.20260209142455-7fea5efd57ca
 	istio.io/client-go v1.29.1
+	k8s.io/api v0.35.3
+	k8s.io/apimachinery v0.35.3
 	k8s.io/client-go v0.35.3
 )
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
-	github.com/fatih/color v1.19.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-openapi/jsonpointer v0.22.4 // indirect
@@ -52,9 +55,6 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	istio.io/api v1.29.0-rc.1.0.20260209142455-7fea5efd57ca // indirect
-	k8s.io/api v0.35.3 // indirect
-	k8s.io/apimachinery v0.35.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20251125145642-4e65d59e963e // indirect
 	k8s.io/utils v0.0.0-20251219084037-98d557b7f1e7 // indirect

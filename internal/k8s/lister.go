@@ -18,9 +18,12 @@ import (
 type Service struct {
 	Name      string
 	Namespace string
-	// Labels are needed so the mTLS scanner can match workload-scoped
-	// PeerAuthentication selectors against individual services.
+	// Labels are the Service's own metadata labels.
 	Labels map[string]string
+	// PodSelector is the Service's spec.selector — the pod labels used to
+	// route traffic to backing pods. PeerAuthentication workload selectors
+	// target pod labels, so this is the correct field to match against.
+	PodSelector map[string]string
 }
 
 // ListNamespaces returns the set of namespaces to scan. If scopedNamespace is
@@ -86,10 +89,15 @@ func fromCoreService(s corev1.Service) Service {
 	for k, v := range s.Labels {
 		labels[k] = v
 	}
+	podSelector := make(map[string]string, len(s.Spec.Selector))
+	for k, v := range s.Spec.Selector {
+		podSelector[k] = v
+	}
 	return Service{
-		Name:      s.Name,
-		Namespace: s.Namespace,
-		Labels:    labels,
+		Name:        s.Name,
+		Namespace:   s.Namespace,
+		Labels:      labels,
+		PodSelector: podSelector,
 	}
 }
 

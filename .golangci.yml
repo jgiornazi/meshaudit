@@ -1,0 +1,17 @@
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - gosimple
+    - ineffassign
+    - unused
+    - godot
+  disable-all: true
+
+linters-settings:
+  godot:
+    scope: declarations
+
+issues:
+  max-same-issues: 0

@@ -107,9 +107,10 @@ func buildPAStore(items []*istioclientv1beta1.PeerAuthentication) paStore {
 // precedence chain: workload → namespace → mesh-wide → default.
 func (s *paStore) resolve(svc k8s.Service) MTLSMode {
 	// 1. Workload-scoped: find a PA in the same namespace whose selector
-	//    is a subset of the service's labels.
+	//    is a subset of the service's pod selector labels. PA selectors target
+	//    pods, and Service.Spec.Selector points to the same pod label set.
 	for _, pa := range s.workloadPolicies[svc.Namespace] {
-		if labelsMatch(pa.Spec.Selector.MatchLabels, svc.Labels) {
+		if labelsMatch(pa.Spec.Selector.MatchLabels, svc.PodSelector) {
 			if mode, ok := extractMode(pa); ok {
 				return mode
 			}

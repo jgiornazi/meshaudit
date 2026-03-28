@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -23,6 +24,9 @@ and AuthorizationPolicy hygiene issues, producing a prioritized security report.
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
+		if errors.Is(err, errFindings) {
+			os.Exit(1)
+		}
 		os.Exit(2)
 	}
 }

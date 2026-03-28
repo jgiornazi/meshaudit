@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -10,6 +12,8 @@ import (
 	meshk8s "github.com/jgiornazi/meshaudit/internal/k8s"
 	"github.com/jgiornazi/meshaudit/internal/report"
 )
+
+var errFindings = errors.New("findings exceed threshold")
 
 var skipNamespaces string
 var minScore int
@@ -25,7 +29,24 @@ func init() {
 	scanCmd.Flags().IntVar(&minScore, "min-score", 0, "Fail if posture score is below this threshold (0-100)")
 }
 
+func checkThresholds(score, minScore int, failOnWarn bool, warn, fail int) error {
+	if minScore > 0 && score < minScore {
+		return errFindings
+	}
+	if failOnWarn && (warn > 0 || fail > 0) {
+		return errFindings
+	}
+	return nil
+}
+
 func runScan(cmd *cobra.Command, args []string) error {
+	switch output {
+	case "pretty", "json":
+		// valid
+	default:
+		return fmt.Errorf("unknown output format %q: must be \"pretty\" or \"json\"", output)
+	}
+
 	ctx := context.Background()
 
 	clients := meshk8s.New(kubeconfig, kubeContext)
@@ -70,12 +91,5 @@ func runScan(cmd *cobra.Command, args []string) error {
 	result := audit.Compute(mtlsFindings, authzFindings)
 	_, warn, fail := audit.Summary(mtlsFindings, authzFindings)
 
-	if minScore > 0 && result.Score < minScore {
-		os.Exit(1)
-	}
-	if failOnWarn && (warn > 0 || fail > 0) {
-		os.Exit(1)
-	}
-
-	return nil
+	return checkThresholds(result.Score, minScore, failOnWarn, warn, fail)
 }

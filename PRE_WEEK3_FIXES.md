@@ -15,6 +15,9 @@
 | 5 | `contains()` in test file reimplements `strings.Contains` | Low |
 | 6 | CI coverage gate uses function-average, not statement coverage | Medium |
 | 7 | `os.Exit(1)` called directly in command handler (untestable) | Medium |
+| 8 | No `.golangci.yml` — linter set is unpinned, CI failures non-deterministic | Medium |
+| 9 | `cmd/scan_test.go` mutates package-level `output` var — unsafe if parallelised | Low |
+| 10 | `fromCoreService` PodSelector path has no test — introduced by pre-W3 fix | Low |
 
 ---
 
@@ -242,6 +245,99 @@ Task 7  (k8s/lister tests)          — no deps
 Task 8  (report/json tests)         — no deps
 Task 9  (report/pretty tests)       — soft dep on Task 3
 Task 10 (CI coverage gate)          — depends on Tasks 6, 7, 8, 9
+Task 11 (.golangci.yml)             — no deps
+Task 12 (scan_test var isolation)   — depends on Task 6
+Task 13 (PodSelector test)          — no deps
 ```
 
-Tasks 1–4, 7, and 8 can be worked in parallel. Task 5 must land before Task 6. Task 10 is last.
+Tasks 1–4, 7, 8, 11, and 13 can be worked in parallel. Task 5 must land before Task 6. Task 12 depends on Task 6. Task 10 is last among the original set; Tasks 11–13 can land any time before the Week 3 branch opens.
+
+---
+
+### Task 11 — Add `.golangci.yml`
+**Issue:** #8
+**New file:** `.golangci.yml`
+**No dependencies**
+
+`golangci-lint` runs in CI with no config, so the active linter set is determined by the tool's built-in defaults for `v1.64.8`. This is non-deterministic across upgrades and may silently enable linters (e.g. `gochecknoglobals`, `wrapcheck`) that flag valid code in the current codebase. Pin the set explicitly before Week 3 adds more code.
+
+```yaml
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - gosimple
+    - ineffassign
+    - unused
+    - godot
+  disable-all: true
+
+linters-settings:
+  godot:
+    scope: declarations
+
+issues:
+  max-same-issues: 0
+```
+
+After creating the file, run `golangci-lint run ./...` locally and fix any findings before committing. Zero findings on `main` is a PRD quality target (§8.2).
+
+---
+
+### Task 12 — Fix package-level var mutation in `cmd/scan_test.go`
+**Issue:** #9
+**File:** `cmd/scan_test.go`
+**Depends on Task 6**
+
+`TestRunScan_InvalidOutputFormat` sets `output = "xml"` directly on the package-level variable declared in `root.go`. This is safe today because `cmd` tests don't run in parallel, but it will become a data race the moment any test calls `t.Parallel()`. Isolate the mutation with `t.Cleanup`:
+
+```go
+func TestRunScan_InvalidOutputFormat(t *testing.T) {
+    orig := output
+    t.Cleanup(func() { output = orig })
+    output = "xml"
+    err := runScan(nil, nil)
+    if err == nil || !strings.Contains(err.Error(), "unknown output format") {
+        t.Errorf("expected 'unknown output format' error, got %v", err)
+    }
+}
+```
+
+Apply the same `t.Cleanup` pattern to any future test that mutates `output`, `minScore`, `failOnWarn`, `namespace`, or `skipNamespaces`.
+
+---
+
+### Task 13 — Add `fromCoreService` PodSelector test
+**Issue:** #10
+**File:** `internal/k8s/lister_test.go`
+**No dependencies**
+
+The `PodSelector` field was introduced to fix workload-scoped PA matching, but the function that populates it (`fromCoreService`) is only exercised via `ListServices`. No test verifies that `Spec.Selector` is correctly copied. If `fromCoreService` is refactored and the copy is dropped, the mTLS scanner silently regresses — all workload-scoped PAs fall through to namespace or mesh-wide, no error, no failing test.
+
+Add to `internal/k8s/lister_test.go`:
+
+```go
+func TestListServices_PodSelectorPopulated(t *testing.T) {
+    client := k8sfake.NewSimpleClientset(
+        &corev1.Service{
+            ObjectMeta: metav1.ObjectMeta{Name: "frontend", Namespace: "production"},
+            Spec: corev1.ServiceSpec{
+                Selector: map[string]string{"app": "frontend", "version": "v2"},
+            },
+        },
+    )
+    svcs, err := ListServices(context.Background(), client, []string{"production"})
+    if err != nil {
+        t.Fatalf("unexpected error: %v", err)
+    }
+    if len(svcs) != 1 {
+        t.Fatalf("expected 1 service, got %d", len(svcs))
+    }
+    if svcs[0].PodSelector["app"] != "frontend" {
+        t.Errorf("PodSelector[app] = %q, want %q", svcs[0].PodSelector["app"], "frontend")
+    }
+    if svcs[0].PodSelector["version"] != "v2" {
+        t.Errorf("PodSelector[version] = %q, want %q", svcs[0].PodSelector["version"], "v2")
+    }
+}

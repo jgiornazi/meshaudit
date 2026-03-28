@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	istioapi "istio.io/api/security/v1beta1"
@@ -151,14 +152,17 @@ func selectorName(sel interface{ GetMatchLabels() map[string]string }) string {
 	if app, ok := labels["app"]; ok {
 		return app
 	}
-	// Fall back to first non-app label value (covers custom label selectors).
+	// Fall back to first non-app label value (sorted for determinism).
 	// Returns "" when labels is empty.
-	result := ""
-	for _, v := range labels {
-		result = v
-		break
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
 	}
-	return result
+	sort.Strings(keys)
+	if len(keys) > 0 {
+		return labels[keys[0]]
+	}
+	return ""
 }
 
 // containsWildcard reports whether the slice contains a bare "*" or "/*".
