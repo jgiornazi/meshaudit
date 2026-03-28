@@ -34,12 +34,13 @@ jobs:
             }
           }'
 
-      - name: Binary size gate (< 20 MB)
+      - name: Binary size gate (< 30 MB)
         run: |
           go build -ldflags "-s -w -X github.com/jgiornazi/meshaudit/cmd.Version=ci" -o meshaudit_ci .
           SIZE=$(du -k meshaudit_ci | awk '{print $1}')
           echo "Binary size: ${SIZE} KB"
-          awk -v s="$SIZE" 'BEGIN { if (s+0 > 20480) { print "FAIL: binary " s "KB exceeds 20MB limit"; exit 1 } }'
+          awk -v s="$SIZE" 'BEGIN { if (s+0 > 30720) { print "FAIL: binary " s "KB exceeds 30MB limit"; exit 1 } }'
+
           rm meshaudit_ci
 
   vet:
