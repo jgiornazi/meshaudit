@@ -62,6 +62,12 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	deployments, err := meshk8s.ListDeployments(ctx, clients.Kube, namespaces)
+	if err != nil {
+		return err
+	}
+	services = meshk8s.EnrichServicesWithDeploymentLabels(services, deployments)
+
 	mtlsFindings, err := audit.ScanMTLS(ctx, clients.Istio, services)
 	if err != nil {
 		return err

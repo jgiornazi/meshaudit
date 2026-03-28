@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jgiornazi/meshaudit/internal/audit"
+	"github.com/jgiornazi/meshaudit/internal/drift"
 )
 
 func TestPrintHeader_ContainsClusterAndNamespace(t *testing.T) {
@@ -129,6 +130,48 @@ func TestScoreColor_Bands(t *testing.T) {
 		c := scoreColor(score)
 		if c == nil {
 			t.Errorf("scoreColor(%d) returned nil", score)
+		}
+	}
+}
+
+func TestPrintDrift_ContainsNameAndStatus(t *testing.T) {
+	results := []drift.VSResult{
+		{Name: "reviews-vs", Namespace: "production", Status: drift.StatusInSync},
+		{Name: "ratings-vs", Namespace: "production", Status: drift.StatusDrifted, Diffs: []drift.FieldDiff{
+			{Field: "spec.http", Live: "old", Desired: "new"},
+		}},
+		{Name: "old-vs", Namespace: "production", Status: drift.StatusLiveOnly},
+		{Name: "new-vs", Namespace: "staging", Status: drift.StatusManifestOnly},
+	}
+	var buf bytes.Buffer
+	PrintDrift(&buf, results)
+	out := buf.String()
+
+	for _, want := range []string{"reviews-vs", "ratings-vs", "old-vs", "new-vs", "spec.http"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %q in drift output, got: %q", want, out)
+		}
+	}
+}
+
+func TestDriftStyle_AllStatuses(t *testing.T) {
+	statuses := []drift.DriftStatus{
+		drift.StatusInSync,
+		drift.StatusDrifted,
+		drift.StatusLiveOnly,
+		drift.StatusManifestOnly,
+		"UNKNOWN",
+	}
+	for _, s := range statuses {
+		icon, label, c := driftStyle(s)
+		if icon == "" {
+			t.Errorf("status=%q: empty icon", s)
+		}
+		if label == "" {
+			t.Errorf("status=%q: empty label", s)
+		}
+		if c == nil {
+			t.Errorf("status=%q: nil color", s)
 		}
 	}
 }

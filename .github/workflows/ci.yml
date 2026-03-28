@@ -34,6 +34,14 @@ jobs:
             }
           }'
 
+      - name: Binary size gate (< 20 MB)
+        run: |
+          go build -ldflags "-s -w -X github.com/jgiornazi/meshaudit/cmd.Version=ci" -o meshaudit_ci .
+          SIZE=$(du -k meshaudit_ci | awk '{print $1}')
+          echo "Binary size: ${SIZE} KB"
+          awk -v s="$SIZE" 'BEGIN { if (s+0 > 20480) { print "FAIL: binary " s "KB exceeds 20MB limit"; exit 1 } }'
+          rm meshaudit_ci
+
   vet:
     name: Vet
     runs-on: ubuntu-latest
@@ -62,5 +70,5 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.64.8
+          version: latest
           args: --timeout=5m

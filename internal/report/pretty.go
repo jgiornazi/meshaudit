@@ -7,6 +7,7 @@ import (
 	"github.com/fatih/color"
 
 	"github.com/jgiornazi/meshaudit/internal/audit"
+	"github.com/jgiornazi/meshaudit/internal/drift"
 )
 
 // ANSI color + icon helpers.
@@ -120,6 +121,41 @@ func scoreColor(score int) *color.Color {
 		return yellow
 	default:
 		return red
+	}
+}
+
+// PrintDrift writes a human-readable drift report for a set of VirtualServices.
+func PrintDrift(w io.Writer, results []drift.VSResult) {
+	bold.Fprintln(w, "\nVirtualService Drift")
+
+	for _, r := range results {
+		icon, label, c := driftStyle(r.Status)
+		fmt.Fprintf(w, "  %s  %-40s %s\n",
+			icon,
+			dim.Sprint(r.Namespace+"/") + c.Sprint(r.Name),
+			c.Sprint(label),
+		)
+		for _, d := range r.Diffs {
+			fmt.Fprintf(w, "        %s\n",
+				dim.Sprintf("└─ %s: live=%v, desired=%v", d.Field, d.Live, d.Desired),
+			)
+		}
+	}
+}
+
+// driftStyle returns the icon, label, and color for a drift status.
+func driftStyle(status drift.DriftStatus) (icon string, label string, c *color.Color) {
+	switch status {
+	case drift.StatusInSync:
+		return green.Sprint("■"), "IN SYNC", green
+	case drift.StatusDrifted:
+		return yellow.Sprint("■■"), "DRIFT DETECTED", yellow
+	case drift.StatusLiveOnly:
+		return red.Sprint("■"), "LIVE ONLY (not in git)", red
+	case drift.StatusManifestOnly:
+		return yellow.Sprint("■"), "MANIFEST ONLY (not deployed)", yellow
+	default:
+		return dim.Sprint("?"), string(status), dim
 	}
 }
 

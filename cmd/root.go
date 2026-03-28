@@ -39,5 +39,6 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&failOnWarn, "fail-on-warn", false, "Exit with code 1 if any WARN or FAIL findings exist")
 
 	rootCmd.AddCommand(scanCmd)
+	rootCmd.AddCommand(driftCmd)
 	rootCmd.AddCommand(versionCmd)
 }

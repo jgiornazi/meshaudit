@@ -1,0 +1,55 @@
+project_name: meshaudit
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: meshaudit
+    main: .
+    binary: meshaudit
+    ldflags:
+      - -s -w -X github.com/jgiornazi/meshaudit/cmd.Version={{.Version}}
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+
+archives:
+  - id: meshaudit
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  footer: |
+    **Full Changelog**: https://github.com/jgiornazi/meshaudit/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+brews:
+  - repository:
+      owner: jgiornazi
+      name: homebrew-meshaudit
+    homepage: https://github.com/jgiornazi/meshaudit
+    description: "Istio mTLS & AuthorizationPolicy security auditor for Kubernetes"
+    license: MIT
+    install: bin.install "meshaudit"
+    test: |
+      system "#{bin}/meshaudit version"

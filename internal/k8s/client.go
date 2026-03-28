@@ -5,15 +5,17 @@ import (
 	"os"
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// Clients holds the two API clients meshaudit needs plus metadata derived
+// Clients holds the API clients meshaudit needs plus metadata derived
 // from the resolved kubeconfig.
 type Clients struct {
 	Kube        kubernetes.Interface
 	Istio       istioclient.Interface
+	Dynamic     dynamic.Interface
 	ClusterName string // name of the active kubeconfig context
 }
 
@@ -86,9 +88,17 @@ func New(kubeconfigPath, contextName string) *Clients {
 		fatal("cannot create Istio client: %v", err)
 	}
 
+	// 6. Build the dynamic client (used for CRDs like VirtualService where
+	//    typed clients would require protobuf serialization for diffing).
+	dynamicClient, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		fatal("cannot create dynamic Kubernetes client: %v", err)
+	}
+
 	return &Clients{
 		Kube:        kubeClient,
 		Istio:       istioClient,
+		Dynamic:     dynamicClient,
 		ClusterName: clusterName,
 	}
 }

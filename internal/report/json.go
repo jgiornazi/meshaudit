@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jgiornazi/meshaudit/internal/audit"
+	"github.com/jgiornazi/meshaudit/internal/drift"
 )
 
 // Report is the top-level JSON output struct — matches the PRD schema (§10.3).
@@ -79,6 +80,30 @@ func BuildReport(cluster, namespace string, mtls []audit.MTLSFinding, authz []au
 
 // PrintJSON writes the report as indented JSON to w.
 func PrintJSON(w io.Writer, r Report) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(r)
+}
+
+// DriftReport is the top-level JSON output struct for the drift subcommand.
+type DriftReport struct {
+	Cluster      string             `json:"cluster"`
+	ScannedAt    string             `json:"scanned_at"`
+	Namespace    string             `json:"namespace"`
+	DriftResults []drift.VSResult   `json:"drift_results"`
+}
+
+// PrintDriftJSON writes the drift report as indented JSON to w.
+func PrintDriftJSON(w io.Writer, cluster string, scannedAt time.Time, namespace string, results []drift.VSResult) error {
+	r := DriftReport{
+		Cluster:      cluster,
+		ScannedAt:    scannedAt.UTC().Format(time.RFC3339),
+		Namespace:    namespace,
+		DriftResults: results,
+	}
+	if r.DriftResults == nil {
+		r.DriftResults = []drift.VSResult{}
+	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(r)

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/jgiornazi/meshaudit/internal/audit"
+	"github.com/jgiornazi/meshaudit/internal/drift"
 )
 
 func TestBuildReport_Structure(t *testing.T) {
@@ -77,6 +79,67 @@ func TestPrintJSON_Roundtrip(t *testing.T) {
 	}
 	if len(got.Findings) != len(r.Findings) {
 		t.Errorf("Findings len: got %d, want %d", len(got.Findings), len(r.Findings))
+	}
+}
+
+func TestBuildReport_RequiredJSONFields(t *testing.T) {
+	mtls := []audit.MTLSFinding{
+		{Service: "svc", Namespace: "ns", Mode: audit.ModeStrict},
+	}
+	authz := []audit.AuthzFinding{}
+
+	r := BuildReport("my-cluster", "ns", mtls, authz)
+
+	data, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("json.Marshal error: %v", err)
+	}
+
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatalf("json.Unmarshal error: %v", err)
+	}
+
+	required := []string{"cluster", "scanned_at", "namespace", "score", "score_band", "summary", "findings"}
+	for _, key := range required {
+		if _, ok := m[key]; !ok {
+			t.Errorf("required JSON field %q is missing", key)
+		}
+	}
+}
+
+func TestPrintDriftJSON_RequiredFields(t *testing.T) {
+	results := []drift.VSResult{
+		{Name: "reviews-vs", Namespace: "production", Status: drift.StatusInSync},
+	}
+	var buf bytes.Buffer
+	err := PrintDriftJSON(&buf, "my-cluster", time.Now(), "production", results)
+	if err != nil {
+		t.Fatalf("PrintDriftJSON error: %v", err)
+	}
+
+	var m map[string]interface{}
+	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	required := []string{"cluster", "scanned_at", "namespace", "drift_results"}
+	for _, key := range required {
+		if _, ok := m[key]; !ok {
+			t.Errorf("required JSON field %q is missing", key)
+		}
+	}
+}
+
+func TestPrintDriftJSON_EmptyResults(t *testing.T) {
+	var buf bytes.Buffer
+	err := PrintDriftJSON(&buf, "cluster", time.Now(), "all", nil)
+	if err != nil {
+		t.Fatalf("PrintDriftJSON error: %v", err)
+	}
+	// Should emit an empty array, not null.
+	if !bytes.Contains(buf.Bytes(), []byte(`"drift_results": []`)) {
+		t.Errorf("expected empty array for drift_results, got: %s", buf.String())
 	}
 }
 
